@@ -1,4 +1,4 @@
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -9,6 +9,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.Stream;
+import org.apache.commons.io.FileUtils;
 
 /**
  * Created by eduardo on 14/07/2017.
@@ -28,7 +29,48 @@ public class Backup {
         threadpool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
     }
 
-    private Boolean copyFile(Path sourcefile, Path targetfile) throws IOException {
+    private boolean fileEquals(File file1, File file2) throws Exception{
+        if(file1.length() != file2.length()){
+            return false;
+        }
+
+        try(InputStream in1 =new BufferedInputStream(new FileInputStream(file1));
+            InputStream in2 =new BufferedInputStream(new FileInputStream(file2));
+        ){
+
+            int value1,value2;
+            do{
+                //since we're buffered read() isn't expensive
+                value1 = in1.read();
+                value2 = in2.read();
+                if(value1 !=value2){
+                    return false;
+                }
+            }while(value1 >=0);
+
+            //since we already checked that the file sizes are equal
+            //if we're here we reached the end of both files without a mismatch
+            return true;
+        }
+    }
+
+    private Boolean copyFile(Path sourcefile, Path targetfile) throws Exception {
+        if(Files.exists(targetfile)){
+            File source = sourcefile.toFile();
+            File target = targetfile.toFile();
+
+            //Verificar se os arquivos são iguais, caso sejam não há necessidade de copiar
+            //Ainda muito lento
+//            if(fileEquals(source,target)){
+//                System.out.println("No need for copping: "+targetfile.getFileName());
+//                return true;
+//            }else{
+//                Files.delete(targetfile);
+//            }
+
+            //se o arquivo já existe substitua
+            Files.delete(targetfile);
+        }
         Files.copy(sourcefile, targetfile);
         System.out.println("copping: "+targetfile.getFileName());
         return true;
@@ -59,6 +101,7 @@ public class Backup {
                 LOGGER.warning("Unable to transfer file: " + ioe.getMessage());
             }
         }
+        threadpool.shutdown();
         System.out.println("terminei");
     }
 
